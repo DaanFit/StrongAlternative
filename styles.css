@@ -24,3 +24,9 @@
 .rest-auto{display:flex;align-items:flex-start;gap:8px;color:var(--txt);font-size:12px;line-height:1.4;margin-top:10px}
 .rest-auto input{accent-color:var(--accent);width:17px;height:17px;flex:none;margin:0}
 @media(max-width:570px){.rest-card{padding:12px}.rest-buttons{max-width:220px}.rest-buttons .btn{padding:9px 11px;min-width:60px;font-size:12px}.rest-clock{font-size:32px}}
+
+/* v1.3: auto-rust na iedere set, zichtbaar tijdens scrollen */
+.rest-auto-info{color:var(--txt);font-size:12px;line-height:1.55;margin:12px 0 6px;padding:9px 11px;background:#263c36;border-radius:9px;border:1px solid #496651}
+.rest-float{position:fixed;right:14px;bottom:82px;z-index:40;border:1px solid #9cca84;border-radius:999px;padding:11px 16px;background:#20362d;color:#e3ffcc;font-size:14px;font-weight:850;font-variant-numeric:tabular-nums;box-shadow:0 8px 28px #0009;cursor:pointer}
+.rest-float[hidden]{display:none}
+@media(min-width:750px){.rest-float{bottom:25px;right:24px}}
