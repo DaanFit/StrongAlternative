@@ -1,6 +1,6 @@
 # Mijn Gym — jouw eigen workout-webapp
 
-Een gratis, simpele Progressive Web App (PWA) met **onbeperkte templates**, workouts, gewicht/herhalingen per set, trainingshistorie, een kniecheck en JSON-back-ups.
+Een gratis, simpele Progressive Web App (PWA) met **onbeperkte templates**, workouts, gewicht/herhalingen per set, trainingshistorie, een kniecheck, een automatische rusttimer na iedere set en JSON-back-ups.
 
 ## Wat zit er al in?
 
@@ -15,6 +15,27 @@ Iedere oefening heeft twee werksets. Oefeningen in een superset hebben elk hun e
 **Bestaande app updaten:** publiceer de nieuwe bestanden over je bestaande website op exact dezelfde URL. Maak eerst via Instellingen een JSON-back-up. De browser bewaart de oude gegevens onder dezelfde opslagnaam. Omdat we niets automatisch willen overschrijven, klik je in de nieuwe app op **Templates → + A/B/C-schema** (of op de knop op de startpagina). Oude trainingshistorie en oude templates blijven behouden. Als je de app onder een andere URL opent, staan je oude gegevens daar niet automatisch; gebruik dan je JSON-back-up met beleid (importeren vervangt daar bestaande data). 
 
 De suggesties voor kniebelasting zijn bewust voorzichtig. De app is een **trainingslogboek**, geen medisch hulpmiddel en geen vervanging voor een sportfysiotherapeut.
+
+## Nieuw in versie 1.3 — rusttimer na **iedere** set
+
+- **Automatisch en altijd aan:** als je één set met het rondje ✓ afvinkt, begint de rusttimer meteen. Ook bij supersets: **niet wachten op de andere oefening**.
+- De timer start steeds opnieuw vanaf de ingestelde duur na iedere nieuw afgeronde set. Als je per ongeluk een set afvinkt en het weer ongedaan maakt, start er geen nieuwe timer; gebruik **Reset** om een onbedoelde start te stoppen.
+- De actieve timer is ook zichtbaar in een compact, zwevend label terwijl je langs de oefeningen scrolt. Tik hierop om naar de timer bovenaan te springen.
+- Standaard 90 seconden. Via **Rusttijd instellen** kun je kiezen uit 60, 90, 120, 180 seconden of een eigen tijd van 15–600 seconden. De ingestelde tijd blijft bewaard.
+- **Start, Pauze, Reset** blijven beschikbaar om de timer handmatig te bedienen.
+- Voor deze automatische functie hoef je geen vinkje aan te zetten. Een oude voorkeur `autoStart:false` wordt bij openen automatisch genegeerd.
+- De klok loopt door tijdens het navigeren binnen de app; achtergrondnotificaties en trillingen zijn niet gegarandeerd.
+
+### De website bijwerken op dezelfde GitHub Pages-URL
+
+1. Ga eerst op **https://daanfit.github.io/mijn-gym/** naar **Instellingen → Back-up downloaden**; bewaar dat `.json`-bestand privé. De website-upgrade vereist normaal geen import.
+2. Pak de nieuwste ZIP uit.
+3. Open **https://github.com/daanfit/mijn-gym/** en blijf in dezelfde repository en `main`-branch.
+4. Kies **Add file → Upload files** en upload **alle bestanden uit de ZIP**, inclusief de map `icons/`, naar de **root**. Je mag bestaande gelijknamige websitebestanden vervangen. Klik op **Commit changes**.
+5. Controleer **Actions** of **Settings → Pages** tot de publicatie geslaagd is; heropen **dezelfde URL**. Sluit eventueel de geïnstalleerde app helemaal en open opnieuw (serviceworker-updates kunnen één of twee heropeningen vragen).
+6. Start een training; de rusttimer staat boven de oefeningen. Je bestaande historie en kniechecks blijven bij dezelfde browser/origin bewaard zolang je de browsergegevens niet wist.
+
+**Zet de bestanden niet in een extra map** en upload de ZIP niet als één bestand. **Verwijder je GitHub-repository niet**. Het herstellen van de JSON-back-up vervangt eventuele inmiddels gemaakte lokale trainingsgegevens, dus doe dat alleen als het nodig is.
 
 ## Snel online zetten via GitHub Pages (zonder zelf code te hoeven schrijven)
 
@@ -63,7 +84,7 @@ Maak regelmatig een back-up via **Instellingen → Back-up downloaden**. Bewaar 
 ## Wat kun je later uitbreiden?
 
 - Account en synchronisatie (bijvoorbeeld Supabase/Firebase)
-- Timer tussen sets
+- Meer timerfuncties (bijv. uitgebreide instellingen per oefening)
 - PR's en grafieken per oefening
 - Kopiëren van een workout of een andere squat-progressie
 - Eenvoudige import van Strong-exportbestanden (vereist extra dataconversie)

@@ -30,3 +30,21 @@
 .rest-float{position:fixed;right:14px;bottom:82px;z-index:40;border:1px solid #9cca84;border-radius:999px;padding:11px 16px;background:#20362d;color:#e3ffcc;font-size:14px;font-weight:850;font-variant-numeric:tabular-nums;box-shadow:0 8px 28px #0009;cursor:pointer}
 .rest-float[hidden]{display:none}
 @media(min-width:750px){.rest-float{bottom:25px;right:24px}}
+
+
+/* v1.4: rusttimer per set, zoals Strong-achtig */
+.set-block{margin-bottom:10px}
+.set-timer{margin:7px 0 12px 38px;padding:10px 11px 11px;background:#182126;border:1px solid #304048;border-radius:12px}
+.set-timer-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}
+.set-timer-label{font-size:11px;color:var(--muted);font-weight:750}
+.set-timer-time{font-size:18px;font-weight:850;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
+.set-timer-bar{height:8px;background:#0f1519;border-radius:999px;overflow:hidden;border:1px solid #2f3c43}
+.set-timer-fill{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#75e46f);transition:width .25s ease}
+.set-timer-controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.timer-chip{border:1px solid #4b5c62;background:#253239;color:#dbe8eb;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800}
+.timer-chip.ghost{background:transparent;color:var(--muted)}
+.set-timer.active{border-color:#79d46d;box-shadow:0 0 0 1px #79d46d22 inset;background:#1c2d23}
+.set-timer.active .set-timer-label{color:#c9f1bd}
+.set-timer.paused{border-color:#8aa3b1}
+.set-timer.finished{border-color:#5c7d66;background:#1b2720}
+@media(max-width:570px){.set-timer{margin-left:0}.set-timer-time{font-size:17px}.timer-chip{padding:6px 9px;font-size:10px}}

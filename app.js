@@ -51,58 +51,67 @@ function load(){try{const v=localStorage.getItem(STORAGE_KEY);if(v){let o=JSON.p
 let data=load();
 // Timerinstellingen blijven bij app-updates en JSON-back-ups bewaard.
 // De aflooptijd is een tijdstip (Date.now), zodat de klok na het wisselen van tabblad klopt.
-function restDefaults(){return {durationSec:90,remainingSec:90,endsAt:null,running:false,autoStart:true};}
+function restDefaults(){return {durationSec:90,remainingSec:90,endsAt:null,running:false,activeKey:'',lastCompletedKey:''};}
 function normalizeRestTimer(){
  const r=data.restTimer||{};
  const durationSec=Number.isFinite(Number(r.durationSec))?Math.max(15,Math.min(600,Math.round(Number(r.durationSec)))):90;
  const remainingSec=Number.isFinite(Number(r.remainingSec))?Math.max(0,Math.min(600,Math.ceil(Number(r.remainingSec)))):durationSec;
- data.restTimer={durationSec,remainingSec,endsAt:Number.isFinite(Number(r.endsAt))&&Number(r.endsAt)>0?Number(r.endsAt):null,running:r.running===true&&Number(r.endsAt)>0,autoStart:true};
+ data.restTimer={durationSec,remainingSec,endsAt:Number.isFinite(Number(r.endsAt))&&Number(r.endsAt)>0?Number(r.endsAt):null,running:r.running===true&&Number(r.endsAt)>0,activeKey:String(r.activeKey||''),lastCompletedKey:String(r.lastCompletedKey||'')};
 }
 normalizeRestTimer();
 const ui={page:'home',editor:null,expandedSession:null};
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));storageOkay=true;}catch(e){storageOkay=false;toast('Opslaan mislukt. Maak een back-up en controleer browserinstellingen.');}}
 if(storageOkay&&!localStorage.getItem(STORAGE_KEY))save();
 function toast(message){document.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.role='status';t.textContent=message;document.body.appendChild(t);setTimeout(()=>t.remove(),3800);}
-// Tijdweergave en bediening van de rusttimer.
 const restTimeLabel=secs=>`${pad(Math.floor(secs/60))}:${pad(secs%60)}`;
+const setKey=(ei,si)=>`${ei}-${si}`;
 function restLeft(){const r=data.restTimer;return r.running?Math.max(0,Math.ceil((r.endsAt-Date.now())/1000)):r.remainingSec;}
+function restProgressFor(key){
+ const r=data.restTimer;
+ const remaining=(r.activeKey===key)?restLeft():r.durationSec;
+ const pct=r.durationSec>0?Math.max(0,Math.min(100,(remaining/r.durationSec)*100)):0;
+ return {remaining,pct};
+}
 function showRestDone(){
  if(ui.page==='workout'&&data.active){toast('Rusttijd voorbij! Je kunt aan je volgende set beginnen.');}
- // Trillen werkt alleen op browsers/toestellen die dit toestaan.
  if(typeof navigator!=='undefined'&&navigator.vibrate&&document.visibilityState==='visible')navigator.vibrate([140,80,140]);
 }
 function restTick(){
  const r=data.restTimer;
  const remaining=restLeft();
  if(r.running&&remaining===0){r.running=false;r.endsAt=null;r.remainingSec=0;save();showRestDone();}
- const display=$('#restTime');
- if(!display)return;
- display.textContent=restTimeLabel(remaining);
- const floating=$('#restFloat');
- if(floating){floating.hidden=!r.running;const floatingTime=$('#restFloatTime');if(floatingTime)floatingTime.textContent=restTimeLabel(remaining);}
- const status=$('#restStatus');
- if(status)status.textContent=remaining===0?'Rust voorbij':r.running?'Rust loopt…':'Klaar om te starten';
- const start=$('[data-action="rest-start"]');
- const pause=$('[data-action="rest-pause"]');
- if(start)start.disabled=r.running;
- if(pause)pause.disabled=!r.running;
- display.classList.toggle('finished',remaining===0);
+ document.querySelectorAll('.set-timer').forEach(row=>{
+   const key=row.dataset.restKey;
+   const active=r.activeKey===key;
+   const info=restProgressFor(key);
+   const time=row.querySelector('.set-timer-time');
+   const fill=row.querySelector('.set-timer-fill');
+   const label=row.querySelector('.set-timer-label');
+   if(time)time.textContent=active?restTimeLabel(info.remaining):restTimeLabel(r.durationSec);
+   if(fill)fill.style.width=`${active?info.pct:0}%`;
+   row.classList.toggle('active',active&&r.running);
+   row.classList.toggle('paused',active&&!r.running&&info.remaining>0);
+   row.classList.toggle('finished',active&&!r.running&&info.remaining===0);
+   if(label){
+     label.textContent=active?(r.running?'Rust loopt…':info.remaining===0?'Rust voorbij':'Gepauzeerd'):(r.lastCompletedKey===key?'Laatste set':'Rusttimer');
+   }
+ });
 }
-function restStart(fresh=false){
+function restStart(fresh=false,key=''){
  const r=data.restTimer;
+ if(key)r.activeKey=key;
  const remaining=fresh||restLeft()===0?r.durationSec:restLeft();
  r.remainingSec=remaining;r.endsAt=Date.now()+remaining*1000;r.running=true;save();restTick();
 }
-function restPause(){const r=data.restTimer;if(!r.running)return;r.remainingSec=restLeft();r.endsAt=null;r.running=false;save();restTick();}
-function restReset(){const r=data.restTimer;r.remainingSec=r.durationSec;r.endsAt=null;r.running=false;save();restTick();}
-function restDuration(seconds){
+function restPause(key=''){const r=data.restTimer;if(key&&r.activeKey!==key)return;if(!r.running)return;r.remainingSec=restLeft();r.endsAt=null;r.running=false;save();restTick();}
+function restReset(key=''){const r=data.restTimer;if(key)r.activeKey=key;r.remainingSec=r.durationSec;r.endsAt=null;r.running=false;save();restTick();}
+function restDuration(seconds,key=''){
  const n=Number(seconds);
  if(!Number.isFinite(n))return;
  const r=data.restTimer;r.durationSec=Math.max(15,Math.min(600,Math.round(n)));
- restReset();
- const input=$('#restDuration');if(input)input.value=String(r.durationSec);
+ if(key){r.activeKey=key;r.remainingSec=r.durationSec;r.endsAt=null;r.running=false;} else {restReset();}
+ save();restTick();
 }
-function restUI(){const r=data.restTimer;return `<section class="rest-card" aria-label="Rusttimer"><div class="rest-main"><div><span class="rest-eyebrow">⏱ Rusttimer</span><div class="rest-clock" id="restTime" role="timer">${restTimeLabel(restLeft())}</div><div id="restStatus" class="rest-status" aria-live="polite">${r.running?'Rust loopt…':restLeft()===0?'Rust voorbij':'Klaar om te starten'}</div></div><div class="rest-buttons"><button class="btn small" type="button" data-action="rest-start" ${r.running?'disabled':''}>▶ Start</button><button class="btn small secondary" type="button" data-action="rest-pause" ${!r.running?'disabled':''}>Ⅱ Pauze</button><button class="btn small secondary" type="button" data-action="rest-reset">↺ Reset</button></div></div><details class="rest-settings"><summary>⚙ Rusttijd instellen</summary><div class="rest-presets">${[60,90,120,180].map(sec=>`<button type="button" class="btn small secondary" data-action="rest-preset" data-seconds="${sec}">${sec<60?sec+' sec':sec/60+' min'}</button>`).join('')}</div><div class="rest-custom"><label for="restDuration">Eigen rusttijd (seconden)</label><input class="textinput" id="restDuration" type="number" min="15" max="600" step="5" inputmode="numeric" value="${r.durationSec}"></div><p class="rest-auto-info">✓ Start automatisch zodra je <strong>één set</strong> afvinkt, ook bij supersets. Elke nieuwe voltooide set start de volledige rusttijd opnieuw.</p><p class="hint">Tijd blijft doorlopen als je binnen de app navigeert. Op de achtergrond kan een geluid of trilling door je telefoon worden geblokkeerd.</p></details></section>`;}
 const navItems=[['home','Vandaag'],['templates','Templates'],['history','Historie'],['knee','Kniecheck'],['settings','Instellingen']];
 function nav(){return navItems.map(([id,label])=>`<button type="button" class="nav ${ui.page===id?'active':''}" data-action="nav" data-page="${id}">${label}</button>`).join('');}
 function shell(content){$('#app').innerHTML=`<header class="header"><div class="header-inner"><div class="brand"><div class="brand-icon">✦</div><div><div class="brand-main">MIJN GYM</div><div class="brand-sub">TRAIN. LOG. GROEI.</div></div></div><nav class="desktop-nav" aria-label="Hoofdnavigatie">${nav()}</nav></div></header><main class="wrap">${!storageOkay?'<div class="helper">Opslaan is mogelijk geblokkeerd in deze browser. Gebruik geen privémodus en maak back-ups.</div>':''}${content}</main><nav class="mobile-nav" aria-label="Mobiele navigatie">${nav()}</nav>`;}
@@ -123,11 +132,9 @@ function startWorkout(id){if(data.active){toast('Rond eerst je lopende training 
 function workout(){const w=data.active;if(!w){ui.page='home';return home();}
  return heading('Lopende training',w.templateName,`Gestart ${new Date(w.startedAt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}`,
  `<button class="btn secondary small" data-action="nav" data-page="home">← Overzicht</button>`)+
- `<div class="helper">Vul kilo's en herhalingen of seconden in en vink een uitgevoerde set af. Alle wijzigingen worden lokaal bewaard. Voor een oefening met eigen lichaamsgewicht kun je 0 kg extra gewicht gebruiken.</div>`+
- restUI()+
- `<button type="button" class="rest-float" id="restFloat" data-action="rest-jump" hidden aria-label="Bekijk rusttimer">⏱ Rust <span id="restFloatTime">${restTimeLabel(restLeft())}</span></button>`+
+ `<div class="helper">Vul kilo's en herhalingen of seconden in en vink een uitgevoerde set af. <strong>Na iedere afgevinkte set start de rusttimer automatisch bij die set</strong>. Je kunt de rusttijd onder elke set aanpassen, net als in Strong.</div>`+
  w.exercises.map((e,ei)=>`${e.group&&(!ei||w.exercises[ei-1].group!==e.group)?`<div class="group-label">${e.groupType==='superset'?'↔ SUPERSET · Wissel beide oefeningen af':'↓ ACHTER ELKAAR · Eerst step-down, dan calf raise'}</div>`:''}<section class="exercise ${e.group?'exercise-grouped':''}"><div class="ex-head"><div><h3>${h(e.name)}</h3><small>Doel: ${h(e.target||'eigen tempo')} · ${e.kind==='time'?'Tijd':'Gewicht + herhalingen'}</small></div><span class="tag">${e.sets.filter(s=>s.done).length}/${e.sets.length} sets</span></div><div class="set-head"><span>Set</span><span>${e.kind==='time'?'Kg (opt.)':'Gewicht (kg)'}</span><span>${e.kind==='time'?'Seconden':'Herhalingen'}</span><span>Klaar</span></div>
- ${e.sets.map((s,si)=>`<div class="set-row"><span class="set-index">${si+1}</span><input class="numinput" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Set ${si+1} gewicht in kg" data-ex-index="${ei}" data-set-index="${si}" data-field="weight" value="${num(s.weight)||''}" placeholder="0"><input class="numinput" type="number" min="0" step="1" inputmode="numeric" aria-label="Set ${si+1} ${e.kind==='time'?'seconden':'herhalingen'}" data-ex-index="${ei}" data-set-index="${si}" data-field="${e.kind==='time'?'seconds':'reps'}" value="${num(e.kind==='time'?s.seconds:s.reps)||''}" placeholder="${e.kind==='time'?'30':'8'}"><button class="done ${s.done?'checked':''}" aria-label="Set ${si+1} ${s.done?'ongedaan maken':'afgerond'}" data-action="toggle-set" data-ex-index="${ei}" data-set-index="${si}">${s.done?'✓':'○'}</button></div>`).join('')}
+ ${e.sets.map((s,si)=>`<div class="set-block"><div class="set-row"><span class="set-index">${si+1}</span><input class="numinput" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Set ${si+1} gewicht in kg" data-ex-index="${ei}" data-set-index="${si}" data-field="weight" value="${num(s.weight)||''}" placeholder="0"><input class="numinput" type="number" min="0" step="1" inputmode="numeric" aria-label="Set ${si+1} ${e.kind==='time'?'seconden':'herhalingen'}" data-ex-index="${ei}" data-set-index="${si}" data-field="${e.kind==='time'?'seconds':'reps'}" value="${num(e.kind==='time'?s.seconds:s.reps)||''}" placeholder="${e.kind==='time'?'30':'8'}"><button class="done ${s.done?'checked':''}" aria-label="Set ${si+1} ${s.done?'ongedaan maken':'afgerond'}" data-action="toggle-set" data-ex-index="${ei}" data-set-index="${si}">${s.done?'✓':'○'}</button></div><div class="set-timer" data-rest-key="${setKey(ei,si)}"><div class="set-timer-top"><span class="set-timer-label">Rusttimer</span><span class="set-timer-time">${restTimeLabel(data.restTimer.durationSec)}</span></div><div class="set-timer-bar"><span class="set-timer-fill" style="width:0%"></span></div><div class="set-timer-controls"><button type="button" class="timer-chip" data-action="rest-set-preset" data-rest-key="${setKey(ei,si)}" data-seconds="60">60s</button><button type="button" class="timer-chip" data-action="rest-set-preset" data-rest-key="${setKey(ei,si)}" data-seconds="90">90s</button><button type="button" class="timer-chip" data-action="rest-set-preset" data-rest-key="${setKey(ei,si)}" data-seconds="120">120s</button><button type="button" class="timer-chip" data-action="rest-set-preset" data-rest-key="${setKey(ei,si)}" data-seconds="180">180s</button><button type="button" class="timer-chip ghost" data-action="rest-set-reset" data-rest-key="${setKey(ei,si)}">Reset</button></div></div></div>`).join('')}
  <div class="ex-foot"><button class="textbtn" data-action="add-set" data-ex-index="${ei}">+ Set toevoegen</button><button class="textbtn danger-text" data-action="remove-set" data-ex-index="${ei}" ${e.sets.length<=1?'disabled':''}>Laatste set verwijderen</button></div></section>`).join('')+
  `<div class="formbox"><div class="field"><label for="workoutNotes">Trainingnotities (optioneel)</label><textarea id="workoutNotes" class="textinput" data-workout-notes rows="3" placeholder="Bijv. squats rustig uitgevoerd, knie reactie morgen controleren">${h(w.notes||'')}</textarea></div><div class="workout-actions"><button class="btn" data-action="finish">✓ Training afronden</button><button class="btn secondary" data-action="cancel">Training annuleren</button></div></div>`;}
 function history(){return heading('Terugkijken','Trainingshistorie','Jouw afgeronde trainingssessies.')+(data.sessions.length?`<div class="list">${data.sessions.map(s=>{const count=s.exercises.reduce((z,e)=>z+e.sets.filter(a=>a.done).length,0);const total=s.exercises.reduce((sum,e)=>sum+e.sets.filter(x=>x.done).reduce((v,x)=>v+num(x.weight)*num(x.reps),0),0);const exp=ui.expandedSession===s.id;return `<article class="item" style="display:block"><div class="row-between"><div><b>${h(s.templateName)}</b><div class="mini">${dateLabel(s.finishedAt)} · ${count} sets · ${pretty(total)} kg volume</div></div><button class="btn secondary small" data-action="history-expand" data-id="${h(s.id)}">${exp?'Sluiten':'Details'}</button></div>${exp?`<div class="divider"></div><div class="history-detail">${s.exercises.map(e=>{const ss=e.sets.filter(z=>z.done);return ss.length?`<div><b>${h(e.name)}:</b> ${ss.map(z=>e.kind==='time'?`${pretty(z.seconds)} sec`:`${pretty(z.weight)} kg × ${pretty(z.reps)}`).join(' · ')}</div>`:'';}).join('')}${s.notes?`<div style="margin-top:9px"><b>Notitie:</b> ${h(s.notes)}</div>`:''}</div><button class="textbtn danger-text" data-action="delete-session" data-id="${h(s.id)}">Training verwijderen</button>`:''}</article>`;}).join('')}</div>`:'<div class="empty">Je hebt nog geen afgeronde training. Start een van je templates.</div>');}
@@ -138,9 +145,9 @@ function kneeChart(){const rows=data.checks.slice().sort((a,b)=>a.date.localeCom
 function knee(){return heading('Pijn en herstel','Kniecheck','Noteer bij voorkeur elke ochtend hoe traplopen voelt.')+
  `<div class="helper">De score helpt je belasting te volgen, maar is geen medische diagnose. Toenemende klachten na de training? Schaal je kniebelasting terug en bespreek aanhoudende klachten met een sportfysiotherapeut.</div><form id="kneeForm" class="formbox"><div class="field"><label for="checkDate">Datum</label><input type="date" id="checkDate" name="date" class="textinput" value="${localDate()}" max="${localDate()}" required></div><div class="knee-grid"><div class="field"><label for="painLeft">Linkerknie bij traplopen (0–10)</label><div class="row-between"><input class="range" type="range" id="painLeft" name="left" min="0" max="10" value="0"><output class="knee-score" id="leftOutput">0</output></div></div><div class="field"><label for="painRight">Rechterknie bij traplopen (0–10)</label><div class="row-between"><input class="range" type="range" id="painRight" name="right" min="0" max="10" value="0"><output class="knee-score" id="rightOutput">0</output></div></div></div><div class="field"><label for="stiff">Ochtendstijfheid (minuten, optioneel)</label><input type="number" id="stiff" name="stiffness" class="textinput" min="0" max="600" placeholder="Bijv. 15"></div><div class="field"><label for="checkNotes">Opmerking (optioneel)</label><textarea name="notes" id="checkNotes" rows="2" class="textinput" maxlength="800" placeholder="Bijv. na padel, diep buigen gevoelig"></textarea></div><button class="btn" type="submit">Kniecheck opslaan</button></form><div class="section-head"><h2>Verloop</h2></div>${kneeChart()}<div class="section-head"><h2>Eerdere kniechecks</h2></div>${data.checks.length?`<div class="list">${data.checks.slice(0,12).map(c=>`<div class="item"><div class="icon-square">↗</div><div class="main"><b>${h(c.date)}</b><div class="mini">Links ${num(c.left)}/10 · Rechts ${num(c.right)}/10${c.stiffness!==null?` · ${num(c.stiffness)} min stijf`:''}</div>${c.notes?`<div class="entry-note">${h(c.notes)}</div>`:''}</div><button class="delete" data-action="delete-check" data-id="${h(c.id)}" aria-label="Verwijder kniecheck">✕</button></div>`).join('')}</div>`:'<p class="hint">Je hebt nog geen scores ingevuld.</p>'}`;}
 function settings(){return heading('Jouw gegevens','Instellingen','Maak regelmatig een back-up, vooral voordat je van telefoon wisselt.')+
- `<div class="formbox"><h3 class="no-margin">Back-up en herstel</h3><p class="hint">Alle gegevens staan lokaal in deze browser. Ze worden niet naar een server gestuurd. Je kunt ze zelf exporteren als JSON-bestand en op een ander apparaat importeren.</p><div class="stack"><button class="btn" data-action="backup">↓ Back-up downloaden</button><button class="btn secondary" data-action="restore">↑ Back-up importeren</button><input type="file" id="importInput" accept=".json,application/json" hidden></div></div><div class="formbox"><h3 class="no-margin">Gegevens op dit apparaat</h3><p class="hint">${data.templates.length} templates · ${data.sessions.length} trainingen · ${data.checks.length} kniechecks</p><button class="btn danger" data-action="reset-all">Alle gegevens wissen</button></div><div class="intro"><div class="icon">🔒</div><div><strong>Privacy en beperkingen</strong><p>Geen account, geen cloud, geen synchronisatie. Browsergegevens kunnen verloren gaan als je websitegegevens wist, privévensters gebruikt of van toestel wisselt. Exporteer daarom geregeld een back-up.</p></div></div><p class="hint">Versie 1.3 · Zelfgebouwde workout-app · Gebruik geen medische noodsituaties om met deze app te beoordelen.</p>`;}
+ `<div class="formbox"><h3 class="no-margin">Back-up en herstel</h3><p class="hint">Alle gegevens staan lokaal in deze browser. Ze worden niet naar een server gestuurd. Je kunt ze zelf exporteren als JSON-bestand en op een ander apparaat importeren.</p><div class="stack"><button class="btn" data-action="backup">↓ Back-up downloaden</button><button class="btn secondary" data-action="restore">↑ Back-up importeren</button><input type="file" id="importInput" accept=".json,application/json" hidden></div></div><div class="formbox"><h3 class="no-margin">Gegevens op dit apparaat</h3><p class="hint">${data.templates.length} templates · ${data.sessions.length} trainingen · ${data.checks.length} kniechecks</p><button class="btn danger" data-action="reset-all">Alle gegevens wissen</button></div><div class="intro"><div class="icon">🔒</div><div><strong>Privacy en beperkingen</strong><p>Geen account, geen cloud, geen synchronisatie. Browsergegevens kunnen verloren gaan als je websitegegevens wist, privévensters gebruikt of van toestel wisselt. Exporteer daarom geregeld een back-up.</p></div></div><p class="hint">Versie 1.4 · Zelfgebouwde workout-app · Gebruik geen medische noodsituaties om met deze app te beoordelen.</p>`;}
 function render(){const map={home,templates,workout,history,knee,settings};shell((map[ui.page]||home)());restTick();}
-function clicked(e){const b=e.target.closest('[data-action]');if(!b)return;const action=b.dataset.action,id=b.dataset.id;const ei=Number(b.dataset.exIndex),si=Number(b.dataset.setIndex);
+function clicked(e){const b=e.target.closest('[data-action]');if(!b)return;const action=b.dataset.action,id=b.dataset.id;const ei=Number(b.dataset.exIndex),si=Number(b.dataset.setIndex);const restKey=b.dataset.restKey||'';
  switch(action){
  case'nav':ui.page=b.dataset.page;ui.editor=null;render();window.scrollTo(0,0);break;
  case'edit':ui.editor=id;ui.page='templates';render();window.scrollTo(0,0);break;
@@ -156,14 +163,12 @@ function clicked(e){const b=e.target.closest('[data-action]');if(!b)return;const
  if(set.done){
   // Elk individueel afgevinkt setje start de rusttijd direct opnieuw,
   // ook de eerste set binnen een superset of step-down/calf-raise-duo.
-  restStart(true);
+  data.restTimer.lastCompletedKey=setKey(ei,si);
+  restStart(true,setKey(ei,si));
  }
  save();render();}break;
- case'rest-jump':$('#restTime')?.scrollIntoView({behavior:'smooth',block:'center'});break;
- case'rest-start':restStart();break;
- case'rest-pause':restPause();break;
- case'rest-reset':restReset();break;
- case'rest-preset':restDuration(b.dataset.seconds);break;
+ case'rest-set-preset':restDuration(b.dataset.seconds,restKey);break;
+ case'rest-set-reset':restReset(restKey);break;
  case'add-set':if(data.active?.exercises[ei]&&data.active.exercises[ei].sets.length<30){const sets=data.active.exercises[ei].sets,last=sets[sets.length-1]||{};sets.push({weight:last.weight||0,reps:last.reps||0,seconds:last.seconds||0,done:false});save();render();}break;
  case'remove-set':if(data.active?.exercises[ei]?.sets.length>1){data.active.exercises[ei].sets.pop();save();render();}break;
  case'finish':{const w=data.active;if(!w)return;let completed=w.exercises.reduce((p,ex)=>p+ex.sets.filter(s=>s.done).length,0);if(completed===0&&!confirm('Je hebt nog geen sets afgevinkt. Toch afronden?'))return;data.sessions.unshift({...w,finishedAt:new Date().toISOString()});data.active=null;restReset();save();ui.page='history';render();toast('Training opgeslagen!');break;}
@@ -194,7 +199,7 @@ async function importBackup(event){const file=event.target.files?.[0];if(!file)r
 document.addEventListener('click',clicked);
 document.addEventListener('input',inputChanged);
 document.addEventListener('submit',formSubmit);
-document.addEventListener('change',e=>{if(e.target.id==='importInput')importBackup(e);if(e.target.id==='restDuration')restDuration(e.target.value);});
+document.addEventListener('change',e=>{if(e.target.id==='importInput')importBackup(e);});
 // Eén interval voor de hele app; de resterende tijd komt van de echte klok.
 setInterval(restTick,300);
 document.addEventListener('visibilitychange',restTick);
